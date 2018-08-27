@@ -1,0 +1,12 @@
+[package]
+name = "houjuu"
+version = "0.1.0"
+authors = ["F5XS <f5xs.0000a@gmail.com>"]
+description = "An actor framework inspired by actix"
+
+[dependencies]
+futures-core = "*"
+futures-executor-preview = "*"
+futures-channel = "*"
+#futures-util = "*"
+#either = "*"
