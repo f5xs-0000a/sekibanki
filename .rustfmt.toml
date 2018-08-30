@@ -1,0 +1,71 @@
+# ---- below are opt-in stable features
+max_width = 80
+newline_style = "Unix"
+use_field_init_shorthand = true # debatable
+use_try_shorthand = true # fuck you, this is not debatable
+
+
+# ---- below are opt-in unstable features
+combine_control_expr = false
+comment_width = 80
+fn_args_density = "Vertical"
+brace_style = "PreferSameLine"
+empty_item_single_line = false
+format_strings = true
+imports_layout = "Vertical"
+merge_imports = true
+match_block_trailing_comma = true
+force_multiline_blocks = true
+normalize_comments = true
+reorder_impl_items = true
+report_todo = "Always"
+report_fixme = "Always"
+space_after_colon = true
+struct_field_align_threshold = 8 # may be subject to change
+spaces_around_ranges = true
+struct_lit_single_line = false
+wrap_comments = true
+color = "Always"
+unstable_features = true
+edition = "Edition2018"
+
+
+# ---- below are unstable defaults
+# indent_style = "Block"
+# condense_wildcard_suffixes = false
+# control_brace_style = "ClosingNextLine"
+# fn_single_line = false
+# where_single_line = false
+# format_macro_bodies = true
+# imports_indent = "Block"
+# trailing_comma = "Vertical"
+# trailing_semicolon = true
+# type_punctuation_density = "Wide"
+# match_arm_blocks = true
+# blank_lines_upper_bound = 1
+# blank_lines_lower_bound = 0
+
+
+# ---- below are stable defaults
+# use_small_heuristics = "Default"
+# binop_separator = "Front"
+# hard_tabs = false
+# merge_derives = true
+# remove_nested_parens = true
+# reorder_imports = true
+# reorder_modules = true
+# tab_spaces = 4
+
+
+# ---- below are configurations on which I don't have any proper knowledge of
+# ---- benefits or consequences the specific configuration will bring
+# disable_all_formatting
+# error_on_line_overflow
+# error_on_unformatted
+# force_explicit_abi
+# format_macro_matchers
+# skip_children
+# required_version
+# hide_parse_errors
+# license_template_path
+# ignore

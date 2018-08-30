@@ -1,2 +1,5 @@
-/target
-**/*.rs.bk
+# ignore cargo.lock #
+Cargo.lock
+
+# ignore the target
+target/*
