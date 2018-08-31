@@ -5,8 +5,8 @@ authors = ["F5XS <f5xs.0000a@gmail.com>"]
 description = "An actor framework inspired by actix"
 
 [dependencies]
-futures-core = "*"
-futures-executor-preview = "*"
-futures-channel = "*"
-futures-util = "*"
-either = "*"
+futures-core = "0.2.1"
+futures-executor-preview = "0.2.1"
+futures-channel = "0.2.1"
+futures-util = "0.2.1"
+either = "1.5.0"

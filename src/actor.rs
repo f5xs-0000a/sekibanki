@@ -1,6 +1,6 @@
 use futures_channel::mpsc::channel;
 use futures_executor::ThreadPool;
-use futures_util::future::lazy;
+use futures_util::StreamExt;
 
 use address::Addr;
 use context::Context;
@@ -17,13 +17,11 @@ pub trait Actor: Sized {
         builder: ActorBuilder,
         pool: ThreadPool,
     ) -> Addr<Self> {
-        // create the channel to send messages to the actor
-        let (rx, tx) = channel(builder.buffer_size);
+        use futures::future::ok;
+        use futures_util::future::lazy;
 
-        let ctx = Context::new(self);
-
-        // create the address
-        let addr = ctx.addr();
+        // create the context and the first address
+        let (ctx, addr) = Context::new(self, builder);
 
         // create a closure wrapped in `ok()` future that will call the function
         // to poll into ThreadPool.
@@ -33,18 +31,22 @@ pub trait Actor: Sized {
         // the threadpool
         let other_thread = lazy(move |_| {
             // call the `on_start()` method of the actor
-            ctx.actor.on_start();
+            ctx.actor_mut().on_start();
 
             // put the context in an infinite loop of waiting
             // just so you know, this idiom is a do-while loop
-            while { (&mut ctx.mut_half).next() == BeAliveOrDead::Alive } {}
+            let loop_future = ctx.fuse().for_each(|_| ok(()));
+            // TODO: because the context is fused, it must return a None when
+            // it's ready to die.
 
-            // call the `on_stop()` method of the actor
-            ctx.actor.on_stop();
+            // the `on_stop()` isn't called here, it's called on the destructor
+            // of the context.
+
+            loop_future
         });
 
         // put the `other_thread` into a waiting loop
-        unimplemented!();
+        pool.run(other_thread);
 
         addr
     }
@@ -74,10 +76,20 @@ pub(crate) enum BeAliveOrDead {
 
 impl BeAliveOrDead {
     pub fn is_alive(&self) -> bool {
-        *self == *BeAliveOrDead::Alive
+        use self::BeAliveOrDead::*;
+
+        match self {
+            &Alive => true,
+            _ => false,
+        }
     }
 
     pub fn is_dead(&self) -> bool {
-        *self == *BeAliveOrDead::Dead
+        use self::BeAliveOrDead::*;
+
+        match self {
+            &Dead => true,
+            _ => false,
+        }
     }
 }

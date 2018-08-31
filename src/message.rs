@@ -26,11 +26,11 @@ pub trait MessageResponse {}
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PackedMessage<A, M>
 where
     A: Actor,
-    M: Message<A>, {
+    M: Message<A> + ?Sized, {
     tx:  OShSender<M::Response>,
     msg: M,
 }
@@ -78,26 +78,41 @@ where
 {
     pub fn new_with_response_channel(
         msg: M,
-    ) -> (PackedMessage<A, M>, OShReceiver<M::Response>) {
-        let (rx, tx) = osh_channel();
+    ) -> (OShReceiver<M::Response>, PackedMessage<A, M>) {
+        let (tx, rx) = osh_channel();
 
         let pm = PackedMessage {
             msg,
             tx,
         };
 
-        (pm, rx)
+        (rx, pm)
     }
 
-    fn handle(
-        self,
-        actor: &mut A,
-        immut_half: &ContextImmutHalf<A>,
-    ) {
-        // process the message and get the response
-        let response = self.msg.handle(actor, immut_half);
-
-        // send the response back to the sender
-        self.tx.send(response);
+    pub(crate) fn into_parts(self) -> (OShSender<M::Response>, M) {
+        (self.tx, self.msg)
     }
+
+    //
+    // pub (crate) fn handle(
+    // self,
+    // actor: &mut A,
+    // immut_half: &ContextImmutHalf<A>,
+    // ) {
+    // process the message and get the response
+    // let response = self.msg.handle(actor, immut_half);
+    //
+    // send the response back to the sender
+    // self.tx.send(response);
+    // }
+    //
 }
+
+//
+// impl<A> Into<PMUnboxedType<A>> for PackedMessage<A, M>
+// where A: Actor, M: Message<A>, {
+// fn into(self) -> PMUnboxedType<A> {
+// self as PMUnboxedType<A>
+// }
+// }
+//

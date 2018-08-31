@@ -8,6 +8,7 @@ extern crate futures_util;
 
 pub mod actor;
 pub mod address;
+mod channels;
 pub mod context;
 pub mod message;
 pub mod response;
@@ -17,10 +18,6 @@ pub use actor::{
     ActorBuilder,
 };
 pub use address::Addr;
-pub use context::{
-    Context,
-    ContextImmutHalf,
-};
 pub use message::{
     Message,
     PackedMessage,

@@ -49,6 +49,6 @@ where
         &mut self,
         cx: &mut FutContext,
     ) -> Poll<Self::Item, Self::Error> {
-        self.rx.poll().map_err(|_| unreachable!())
+        self.rx.poll(cx).map_err(|_| unreachable!())
     }
 }
