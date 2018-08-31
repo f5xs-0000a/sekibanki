@@ -10,14 +10,11 @@ use futures_util::SinkExt;
 use std::sync::Arc;
 
 use actor::Actor;
-use channels::{
-    PMChannelType,
-    PMUnboxedType,
-};
+use channels::PMChannelType;
+use context::ContextImmutHalf;
 use message::{
     Message,
     MessageResponse,
-    PackedMessage,
 };
 use response::ResponseFuture;
 
@@ -66,19 +63,25 @@ where
         msg: M,
     ) -> ResponseFuture<A, M>
     where
-        M: Message<A, Response = MR>,
-        MR: MessageResponse, {
-        // wrap the message and receive the response channel
-        let (rx, pm) = PackedMessage::new_with_response_channel(msg);
+        M: Message<A, Response = MR> + 'static,
+        MR: MessageResponse + 'static, {
+        // create the response channel
+        let (rtx, rrx) = osh_channel();
 
-        // send the packed message
-        // self.tx.send(Box::new(pm as PMUnboxedType));
-        self.tx.send(unsafe {
-            // WARNING: DON'T TRY THIS AT HOME
-            ::std::mem::transmute::<_, PMChannelType<A>>(Box::new(pm))
-        });
+        // create the closure
+        let closure = move |actor: &mut A, ctx: &ContextImmutHalf<A>| {
+            // perform the operation and retrieve the response
+            let response = msg.handle(actor, ctx);
 
-        ResponseFuture::with_receiver(rx)
+            // send the response
+            rtx.send(response);
+        };
+
+        // send the message closure
+        self.tx.send(Box::new(closure));
+
+        // return the response channel
+        ResponseFuture::with_receiver(rrx)
     }
 }
 

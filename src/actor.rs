@@ -1,4 +1,3 @@
-use futures_channel::mpsc::channel;
 use futures_executor::ThreadPool;
 use futures_util::StreamExt;
 

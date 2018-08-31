@@ -15,7 +15,6 @@ use futures_channel::{
     },
     oneshot::Receiver as OShReceiver,
 };
-use futures_util::StreamExt;
 use std::sync::{
     Arc,
     Weak,
@@ -31,7 +30,6 @@ use address::{
     Addr,
 };
 use channels::PMChannelType;
-use message::Message;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -231,13 +229,8 @@ where
 
             // a message has been received
             Ready(Some(Left(msg))) => {
-                // unpack the packed message
-                let (tx, msg) = msg.into_parts();
-
-                // process the message and send the response back
-                let response =
-                    msg.handle(&mut self.mut_half.actor, &self.immut_half);
-                tx.send(response);
+                // perfom the closure message
+                msg(&mut self.mut_half.actor, &self.immut_half);
 
                 // send the status that this is still alive
                 Ok(Ready(Some(Alive)))
