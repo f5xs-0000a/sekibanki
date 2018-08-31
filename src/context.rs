@@ -23,7 +23,6 @@ use std::sync::{
 use actor::{
     Actor,
     ActorBuilder,
-    BeAliveOrDead,
 };
 use address::{
     ActorSelfDestructor,
@@ -200,7 +199,7 @@ where
     A: Actor,
 {
     type Error = Never;
-    type Item = BeAliveOrDead;
+    type Item = ();
 
     fn poll_next(
         &mut self,
@@ -208,7 +207,6 @@ where
     ) -> Poll<Option<Self::Item>, Self::Error> {
         use self::{
             Async::*,
-            BeAliveOrDead::*,
             Either::*,
         };
 
@@ -222,10 +220,10 @@ where
             // the sender has been dropped but without initializing the
             // self-destruct sequence; this normally does not happen but, in any
             // case, the actor may now stop
-            Ready(None) => Ok(Ready(Some(Dead))),
+            Ready(None) => Ok(Ready(None)),
 
             // the self-destruct sequence has been received
-            Ready(Some(Right(_))) => Ok(Ready(Some(Dead))),
+            Ready(Some(Right(_))) => Ok(Ready(None)),
 
             // a message has been received
             Ready(Some(Left(msg))) => {
@@ -233,7 +231,7 @@ where
                 msg(&mut self.mut_half.actor, &self.immut_half);
 
                 // send the status that this is still alive
-                Ok(Ready(Some(Alive)))
+                Ok(Ready(Some(())))
             },
         }
     }

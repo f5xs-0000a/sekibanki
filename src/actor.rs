@@ -35,8 +35,6 @@ pub trait Actor: Sized {
             // put the context in an infinite loop of waiting
             // just so you know, this idiom is a do-while loop
             let loop_future = ctx.fuse().for_each(|_| ok(()));
-            // TODO: because the context is fused, it must return a None when
-            // it's ready to die.
 
             // the `on_stop()` isn't called here, it's called on the destructor
             // of the context.
@@ -63,32 +61,4 @@ pub trait Actor: Sized {
 /// Builder for the `Actor`.
 pub struct ActorBuilder {
     pub buffer_size: usize,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub(crate) enum BeAliveOrDead {
-    Alive,
-    Dead,
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-impl BeAliveOrDead {
-    pub fn is_alive(&self) -> bool {
-        use self::BeAliveOrDead::*;
-
-        match self {
-            &Alive => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_dead(&self) -> bool {
-        use self::BeAliveOrDead::*;
-
-        match self {
-            &Dead => true,
-            _ => false,
-        }
-    }
 }

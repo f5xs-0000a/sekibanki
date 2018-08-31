@@ -18,8 +18,5 @@ pub use actor::{
     ActorBuilder,
 };
 pub use address::Addr;
-pub use message::{
-    Message,
-    PackedMessage,
-};
+pub use message::Message;
 pub use response::ResponseFuture;
