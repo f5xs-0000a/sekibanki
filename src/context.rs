@@ -122,8 +122,6 @@ where
             // return if self-destruct sequence is requested
             // this will happen if either sender has sent its message or the
             // sender dropped
-            // NOTE: it may be better if we just drop the only sender. the
-            // receiver will then return a None, thus
             Ready(_) => return Ok(Ready(Some(Right(())))),
         };
     }
@@ -137,12 +135,16 @@ where
         actor: A,
         builder: ActorBuilder,
     ) -> (Context<A>, Addr<A>) {
+        // create the self-destructor, the message towards the self-desturcto,
+        // and the weak pointer to the self-destructor
         let (self_destructor, sd_rx) = ActorSelfDestructor::new();
         let self_destructor = Arc::new(self_destructor);
         let sd_weak = Arc::downgrade(&self_destructor);
 
+        // create the message channel
         let (tx, rx) = channel(builder.buffer_size);
 
+        // create the address
         let addr = Addr::new(tx.clone(), self_destructor);
 
         let immut_half = ContextImmutHalf {
@@ -212,11 +214,22 @@ where
             Either::*,
         };
 
+        // stream over the underlying stream
+        // the result can be safely unwrapped because the type of the error is
+        // `Never`
         match self.mut_half().poll_next(cx).unwrap() {
+            // pending if not yet ready
             NotReady => Ok(Pending),
-            Ready(None) => unimplemented!(), // Ok(Ready(Some(Alive))),
+
+            // the sender has been dropped but without initializing the
+            // self-destruct sequence; this normally does not happen but, in any
+            // case, the actor may now stop
+            Ready(None) => Ok(Ready(Some(Dead))),
+
+            // the self-destruct sequence has been received
             Ready(Some(Right(_))) => Ok(Ready(Some(Dead))),
 
+            // a message has been received
             Ready(Some(Left(msg))) => {
                 // unpack the packed message
                 let (tx, msg) = msg.into_parts();
