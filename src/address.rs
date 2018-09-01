@@ -1,9 +1,9 @@
 use futures_channel::{
-    mpsc::Sender,
+    mpsc::UnboundedSender as Sender,
     oneshot::{
-        channel as osh_channel,
-        Receiver as OShReceiver,
-        Sender as OShSender,
+        channel as oneshot,
+        Receiver as OneShotReceiver,
+        Sender as OneShotSender,
     },
 };
 use futures_util::SinkExt;
@@ -37,7 +37,7 @@ where
 /// itself.
 #[derive(Debug)]
 pub(crate) struct ActorSelfDestructor {
-    tx: Option<OShSender<()>>,
+    tx: Option<OneShotSender<()>>,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -66,7 +66,7 @@ where
         M: Message<A, Response = MR> + 'static,
         MR: MessageResponse + 'static, {
         // create the response channel
-        let (rtx, rrx) = osh_channel();
+        let (rtx, rrx) = oneshot();
 
         // create the closure
         let closure = move |actor: &mut A, ctx: &ContextImmutHalf<A>| {
@@ -86,8 +86,8 @@ where
 }
 
 impl ActorSelfDestructor {
-    pub fn new() -> (ActorSelfDestructor, OShReceiver<()>) {
-        let (tx, rx) = osh_channel();
+    pub fn new() -> (ActorSelfDestructor, OneShotReceiver<()>) {
+        let (tx, rx) = oneshot();
 
         let asd = ActorSelfDestructor {
             tx: Some(tx)

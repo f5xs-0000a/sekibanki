@@ -1,5 +1,3 @@
-use futures_channel::oneshot::Sender as OShSender;
-
 use actor::Actor;
 use context::ContextImmutHalf;
 
@@ -22,9 +20,6 @@ pub trait MessageResponse {}
 
 ////////////////////////////////////////////////////////////////////////////////
 
-impl<T> MessageResponse for T {
-}
-
 impl<A, M> Message<A> for Box<M>
 where
     A: Actor,
@@ -41,17 +36,5 @@ where
     }
 }
 
-impl<A> Message<A> for ()
-where
-    A: Actor,
-{
-    type Response = ();
-
-    fn handle(
-        self,
-        actor: &mut A,
-        ctx: &ContextImmutHalf<A>,
-    ) -> Self::Response {
-        ()
-    }
+impl<T> MessageResponse for T {
 }

@@ -4,7 +4,7 @@ use futures::{
     Never,
     Poll,
 };
-use futures_channel::oneshot::Receiver as OShReceiver;
+use futures_channel::oneshot::Receiver as OneShotReceiver;
 
 use actor::Actor;
 use message::Message;
@@ -16,7 +16,7 @@ pub struct ResponseFuture<A, M>
 where
     A: Actor,
     M: Message<A>, {
-    rx:     OShReceiver<M::Response>,
+    rx:     OneShotReceiver<M::Response>,
     polled: bool,
 }
 
@@ -28,7 +28,7 @@ where
     M: Message<A>,
 {
     pub(crate) fn with_receiver(
-        rx: OShReceiver<M::Response>,
+        rx: OneShotReceiver<M::Response>,
     ) -> ResponseFuture<A, M> {
         ResponseFuture {
             rx,

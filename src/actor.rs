@@ -62,5 +62,4 @@ pub trait Actor: Sized {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 /// Builder for the `Actor`.
 pub struct ActorBuilder {
-    pub buffer_size: usize,
 }

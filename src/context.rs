@@ -9,11 +9,11 @@ use futures::{
 };
 use futures_channel::{
     mpsc::{
-        channel,
-        Receiver,
-        Sender,
+        unbounded,
+        UnboundedReceiver as Receiver,
+        UnboundedSender as Sender,
     },
-    oneshot::Receiver as OShReceiver,
+    oneshot::Receiver as OneShotReceiver,
 };
 use std::sync::{
     Arc,
@@ -49,7 +49,7 @@ where
 pub (crate) struct ContextMutHalf<A>
 where
     A: Actor, {
-    self_destruct_rx: OShReceiver<()>,
+    self_destruct_rx: OneShotReceiver<()>,
     rx: Receiver<PMChannelType<A>>,
     actor: A,
 }
@@ -139,7 +139,7 @@ where
         let sd_weak = Arc::downgrade(&self_destructor);
 
         // create the message channel
-        let (tx, rx) = channel(builder.buffer_size);
+        let (tx, rx) = unbounded();
 
         // create the address
         let addr = Addr::new(tx.clone(), self_destructor);
