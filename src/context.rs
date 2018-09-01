@@ -130,7 +130,7 @@ where
 {
     pub(crate) fn new(
         actor: A,
-        builder: ActorBuilder,
+        _builder: ActorBuilder,
     ) -> (Context<A>, Addr<A>) {
         // create the self-destructor, the message towards the self-desturcto,
         // and the weak pointer to the self-destructor
@@ -215,7 +215,7 @@ where
         // `Never`
         match self.mut_half().poll_next(cx).unwrap() {
             // pending if not yet ready
-            NotReady => Ok(Pending),
+            Pending => Ok(Pending),
 
             // the sender has been dropped but without initializing the
             // self-destruct sequence; this normally does not happen but, in any

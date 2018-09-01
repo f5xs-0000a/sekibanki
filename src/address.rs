@@ -6,7 +6,6 @@ use futures_channel::{
         Sender as OneShotSender,
     },
 };
-use futures_util::SinkExt;
 use std::sync::Arc;
 
 use actor::Actor;
@@ -78,7 +77,7 @@ where
         };
 
         // send the message closure
-        self.tx.send(Box::new(closure));
+        self.tx.unbounded_send(Box::new(closure));
 
         // return the response channel
         ResponseFuture::with_receiver(rrx)
