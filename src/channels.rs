@@ -1,8 +1,7 @@
 use actor::Actor;
 use context::ContextImmutHalf;
 
-pub type PMChannelType<A: Actor> =
-    Box<dyn FnOnce(&mut A, &ContextImmutHalf<A>)>;
+pub (crate) type PMChannelType<A: Actor> = Box<dyn FnOnce(&mut A, &ContextImmutHalf<A>)>;
 
 // tx: Sender<PackedMessage<A, Box<Message<A, Response = MessageResponse>>>>,
 // rx: Receiver<Box<dyn Message<A, Response = MessageResponse>>>,

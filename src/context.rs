@@ -33,7 +33,7 @@ use channels::PMChannelType;
 ////////////////////////////////////////////////////////////////////////////////
 
 /// The half of the context that is immutable.
-pub(crate) struct ContextImmutHalf<A>
+pub struct ContextImmutHalf<A>
 where
     A: Actor, {
     // this attribute is needed so he can make an exact clone of the address
@@ -46,7 +46,7 @@ where
 }
 
 /// The half of the context that is mutable.
-struct ContextMutHalf<A>
+pub (crate) struct ContextMutHalf<A>
 where
     A: Actor, {
     self_destruct_rx: OShReceiver<()>,
@@ -242,6 +242,6 @@ where
     A: Actor,
 {
     fn drop(&mut self) {
-        self.actor().on_stop();
+        self.mut_half.actor.on_stop();
     }
 }
