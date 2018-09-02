@@ -6,6 +6,7 @@ use futures::{
 };
 use futures_channel::oneshot::Receiver as OneShotReceiver;
 
+use actor::Handles;
 use actor::Actor;
 use message::Message;
 
@@ -14,9 +15,9 @@ use message::Message;
 #[derive(Debug)]
 pub struct ResponseFuture<A, M>
 where
-    A: Actor,
-    M: Message<A>, {
-    rx:     OneShotReceiver<M::Response>,
+    A: Handles<M>,
+    M: Message, {
+    rx:     OneShotReceiver<A::Response>,
     polled: bool,
 }
 
@@ -24,11 +25,11 @@ where
 
 impl<A, M> ResponseFuture<A, M>
 where
-    A: Actor,
-    M: Message<A>,
+    A: Handles<M>,
+    M: Message,
 {
     pub(crate) fn with_receiver(
-        rx: OneShotReceiver<M::Response>,
+        rx: OneShotReceiver<A::Response>,
     ) -> ResponseFuture<A, M> {
         ResponseFuture {
             rx,
@@ -39,11 +40,11 @@ where
 
 impl<A, M> Future for ResponseFuture<A, M>
 where
-    A: Actor,
-    M: Message<A>,
+    A: Handles<M>,
+    M: Message,
 {
     type Error = Never;
-    type Item = M::Response;
+    type Item = A::Response;
 
     fn poll(
         &mut self,

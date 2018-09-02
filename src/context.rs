@@ -66,7 +66,7 @@ where
 
 impl<A> ContextImmutHalf<A>
 where
-    A: Actor,
+    A: Actor + 'static,
 {
     pub fn addr(&self) -> Addr<A> {
         // as a consequence of the initialization of the `sd` attribute, the
@@ -126,7 +126,7 @@ where
 
 impl<A> Context<A>
 where
-    A: Actor,
+    A: Actor + 'static,
 {
     pub(crate) fn new(
         actor: A,
@@ -227,8 +227,11 @@ where
 
             // a message has been received
             Ready(Some(Left(msg))) => {
+                /*
                 // perfom the closure message
                 msg(&mut self.mut_half.actor, &self.immut_half);
+                */
+                msg.handle(&mut self.mut_half.actor, &self.immut_half);
 
                 // send the status that this is still alive
                 Ok(Ready(Some(())))

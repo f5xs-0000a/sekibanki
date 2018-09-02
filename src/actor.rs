@@ -6,6 +6,8 @@ use futures::{
 
 use address::Addr;
 use context::Context;
+use context::ContextImmutHalf;
+use message::Message;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -13,7 +15,7 @@ use context::Context;
 ///
 /// An actor is started once `start_actor()` is called. An actor is stopped if
 /// all addresses pointing to it are dropped.
-pub trait Actor: Sized {
+pub trait Actor: Sized + 'static {
     fn start_actor(
         self,
         builder: ActorBuilder,
@@ -55,6 +57,13 @@ pub trait Actor: Sized {
 
     fn on_stop(&mut self) {
     }
+}
+
+pub trait Handles<M>: Actor
+where M: Message {
+    type Response;
+
+    fn handle(&mut self, msg: M, ctx: &ContextImmutHalf<Self>) -> Self::Response;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

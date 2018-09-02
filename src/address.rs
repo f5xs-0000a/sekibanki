@@ -8,12 +8,13 @@ use futures_channel::{
 };
 use std::sync::Arc;
 
+use actor::Handles;
 use actor::Actor;
 use channels::PMChannelType;
 use context::ContextImmutHalf;
 use message::{
     Message,
-    MessageResponse,
+    Envelope,
 };
 use response::ResponseFuture;
 
@@ -43,7 +44,7 @@ pub(crate) struct ActorSelfDestructor {
 
 impl<A> Addr<A>
 where
-    A: Actor,
+    A: Actor + 'static,
 {
     /// Called during the creation of the actor
     pub(crate) fn new(
@@ -57,16 +58,17 @@ where
     }
 
     /// Send a message to the actor
-    pub fn send<M, MR>(
+    pub fn send<M>(
         &mut self,
         msg: M,
     ) -> ResponseFuture<A, M>
     where
-        M: Message<A, Response = MR> + 'static,
-        MR: MessageResponse + 'static, {
+        M: Message + 'static,
+        A: Handles<M> {
         // create the response channel
         let (rtx, rrx) = oneshot();
 
+        /*
         // create the closure
         let closure = move |actor: &mut A, ctx: &ContextImmutHalf<A>| {
             // perform the operation and retrieve the response
@@ -78,6 +80,10 @@ where
 
         // send the message closure
         self.tx.unbounded_send(Box::new(closure));
+        */
+
+        let envelope = Envelope::new(msg, rtx);
+        self.tx.unbounded_send(envelope);
 
         // return the response channel
         ResponseFuture::with_receiver(rrx)
