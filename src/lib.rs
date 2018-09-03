@@ -20,3 +20,5 @@ pub use actor::{
 pub use address::Addr;
 pub use message::Message;
 pub use response::ResponseFuture;
+pub use context::ContextImmutHalf;
+pub use actor::Handles;

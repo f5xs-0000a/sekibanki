@@ -6,7 +6,7 @@ use futures::{
     Never,
     Poll,
     Stream,
-};
+};use futures_executor::ThreadPool;
 use futures_channel::{
     mpsc::{
         unbounded,
@@ -43,6 +43,9 @@ where
 
     tx: Sender<PMChannelType<A>>,
     // tx: Sender<Box<dyn Message<A, Response = MessageResponse>>>,
+
+    // a copy of the threadpool, in case another actor needs to be started
+    pool: ThreadPool,
 }
 
 /// The half of the context that is mutable.
@@ -76,6 +79,21 @@ where
         );
 
         Addr::new(self.tx.clone(), sd)
+    }
+
+    pub fn threadpool(&self) -> &ThreadPool {
+        &self.pool
+    }
+}
+
+impl<A> ContextMutHalf<A>
+where A: Actor {
+    pub fn actor(&self) -> &A {
+        &self.actor
+    }
+
+    pub fn actor_mut(&mut self) -> &mut A {
+        &mut self.actor
     }
 }
 
@@ -131,6 +149,7 @@ where
     pub(crate) fn new(
         actor: A,
         _builder: ActorBuilder,
+        pool: ThreadPool,
     ) -> (Context<A>, Addr<A>) {
         // create the self-destructor, the message towards the self-desturcto,
         // and the weak pointer to the self-destructor
@@ -147,6 +166,7 @@ where
         let immut_half = ContextImmutHalf {
             sd: sd_weak,
             tx,
+            pool,
         };
 
         let mut_half = ContextMutHalf {
@@ -245,6 +265,6 @@ where
     A: Actor,
 {
     fn drop(&mut self) {
-        self.mut_half.actor.on_stop();
+        self.mut_half.actor.on_stop(&self.immut_half);
     }
 }

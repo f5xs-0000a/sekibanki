@@ -9,7 +9,7 @@ use context::ContextImmutHalf;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub trait Message {
+pub trait Message: Send {
 }
 
 impl<M> Message for M
@@ -36,7 +36,7 @@ where A: Handles<M>,
     }
 }
 
-pub trait EnvelopeInnerTrait {
+pub trait EnvelopeInnerTrait: Send {
     type A: Actor;
 
     fn handle(&mut self, actor: &mut Self::A, ctx: &ContextImmutHalf<Self::A>);
@@ -51,10 +51,12 @@ where A: Handles<M>,
 
     fn handle(&mut self, actor: &mut Self::A, ctx: &ContextImmutHalf<Self::A>) {
         if let Some(msg) = self.msg.take() {
-            actor.handle(msg, ctx);
-        }
+            let response = actor.handle(msg, ctx);
 
-        unimplemented!();
+            if let Some(tx) = self.tx.take() {
+                tx.send(response);
+            }
+        }
     }
 }
 
