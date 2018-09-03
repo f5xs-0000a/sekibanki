@@ -6,7 +6,7 @@ use futures::{
     Never,
     Poll,
     Stream,
-};use futures_executor::ThreadPool;
+};
 use futures_channel::{
     mpsc::{
         unbounded,
@@ -15,6 +15,7 @@ use futures_channel::{
     },
     oneshot::Receiver as OneShotReceiver,
 };
+use futures_executor::ThreadPool;
 use std::sync::{
     Arc,
     Weak,
@@ -28,7 +29,7 @@ use address::{
     ActorSelfDestructor,
     Addr,
 };
-use channels::PMChannelType;
+use message::Envelope;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -41,19 +42,20 @@ where
     // and this is guaranteed to be alive for most intents and purposes
     sd: Weak<ActorSelfDestructor>,
 
-    tx: Sender<PMChannelType<A>>,
-    // tx: Sender<Box<dyn Message<A, Response = MessageResponse>>>,
+    tx: Sender<Envelope<A>>,
 
+    // tx: Sender<Box<dyn Message<A, Response = MessageResponse>>>,
+    //
     // a copy of the threadpool, in case another actor needs to be started
     pool: ThreadPool,
 }
 
 /// The half of the context that is mutable.
-pub (crate) struct ContextMutHalf<A>
+pub(crate) struct ContextMutHalf<A>
 where
     A: Actor, {
     self_destruct_rx: OneShotReceiver<()>,
-    rx: Receiver<PMChannelType<A>>,
+    rx: Receiver<Envelope<A>>,
     actor: A,
 }
 
@@ -87,7 +89,9 @@ where
 }
 
 impl<A> ContextMutHalf<A>
-where A: Actor {
+where
+    A: Actor,
+{
     pub fn actor(&self) -> &A {
         &self.actor
     }
@@ -102,7 +106,7 @@ where
     A: Actor,
 {
     type Error = Never;
-    type Item = Either<PMChannelType<A>, ()>;
+    type Item = Either<Envelope<A>, ()>;
 
     fn poll_next(
         &mut self,

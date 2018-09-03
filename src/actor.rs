@@ -1,14 +1,15 @@
-use futures_executor::ThreadPool;
-use futures_util::StreamExt;
-use futures::{
-    task::Context as FutContext,
-};
 use futures::executor::Executor;
-use futures_util::FutureExt;
+use futures_executor::ThreadPool;
+use futures_util::{
+    FutureExt,
+    StreamExt,
+};
 
 use address::Addr;
-use context::Context;
-use context::ContextImmutHalf;
+use context::{
+    Context,
+    ContextImmutHalf,
+};
 use message::Message;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -24,7 +25,6 @@ pub trait Actor: Sized + 'static + Send {
         mut pool: ThreadPool,
     ) -> Addr<Self> {
         use futures::future::ok;
-        use futures_util::future::lazy;
 
         // create the context and the first address
         let (mut ctx, addr) = Context::new(self, builder, pool.clone());
@@ -38,34 +38,39 @@ pub trait Actor: Sized + 'static + Send {
         }
 
         // put the context into a waiting loop
-        pool.spawn(
-            Box::new(
-                ctx.fuse()
-                    .for_each(|_| ok(()))
-                    .map(|_| ())
-            )
-        );
+        pool.spawn(Box::new(ctx.fuse().for_each(|_| ok(())).map(|_| ())))
+            .expect("Unable to spawn new context...");
 
         addr
     }
 
-    fn on_start(&mut self, ctx: &ContextImmutHalf<Self>) {
+    fn on_start(
+        &mut self,
+        _ctx: &ContextImmutHalf<Self>,
+    ) {
     }
 
-    fn on_stop(&mut self, ctx: &ContextImmutHalf<Self>) {
+    fn on_stop(
+        &mut self,
+        _ctx: &ContextImmutHalf<Self>,
+    ) {
     }
 }
 
 pub trait Handles<M>: Actor
-where M: Message {
+where
+    M: Message, {
     type Response: Send;
 
-    fn handle(&mut self, msg: M, ctx: &ContextImmutHalf<Self>) -> Self::Response;
+    fn handle(
+        &mut self,
+        msg: M,
+        ctx: &ContextImmutHalf<Self>,
+    ) -> Self::Response;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Hash)]
 /// Builder for the `Actor`.
-pub struct ActorBuilder {
-}
+pub struct ActorBuilder {}

@@ -7,7 +7,6 @@ use futures::{
 use futures_channel::oneshot::Receiver as OneShotReceiver;
 
 use actor::Handles;
-use actor::Actor;
 use message::Message;
 
 ////////////////////////////////////////////////////////////////////////////////

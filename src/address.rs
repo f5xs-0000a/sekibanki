@@ -8,13 +8,13 @@ use futures_channel::{
 };
 use std::sync::Arc;
 
-use actor::Handles;
-use actor::Actor;
-use channels::PMChannelType;
-use context::ContextImmutHalf;
+use actor::{
+    Actor,
+    Handles,
+};
 use message::{
-    Message,
     Envelope,
+    Message,
 };
 use response::ResponseFuture;
 
@@ -26,7 +26,7 @@ pub struct Addr<A>
 where
     A: Actor, {
     sd: Arc<ActorSelfDestructor>,
-    tx: Sender<PMChannelType<A>>,
+    tx: Sender<Envelope<A>>,
 }
 
 /// When this object is dropped, it sends a message to the actor to kill itself.
@@ -48,7 +48,7 @@ where
 {
     /// Called during the creation of the actor
     pub(crate) fn new(
-        tx: Sender<PMChannelType<A>>,
+        tx: Sender<Envelope<A>>,
         sd: Arc<ActorSelfDestructor>,
     ) -> Addr<A> {
         Addr {
@@ -64,26 +64,29 @@ where
     ) -> ResponseFuture<A, M>
     where
         M: Message + 'static,
-        A: Handles<M> {
+        A: Handles<M>, {
         // create the response channel
         let (rtx, rrx) = oneshot();
 
-        /*
+        //
         // create the closure
-        let closure = move |actor: &mut A, ctx: &ContextImmutHalf<A>| {
-            // perform the operation and retrieve the response
-            let response = msg.handle(actor, ctx);
-
-            // send the response
-            rtx.send(response);
-        };
-
+        // let closure = move |actor: &mut A, ctx: &ContextImmutHalf<A>| {
+        // perform the operation and retrieve the response
+        // let response = msg.handle(actor, ctx);
+        //
+        // send the response
+        // rtx.send(response);
+        // };
+        //
         // send the message closure
-        self.tx.unbounded_send(Box::new(closure));
-        */
+        // self.tx.unbounded_send(Box::new(closure));
+        //
 
         let envelope = Envelope::new(msg, rtx);
-        self.tx.unbounded_send(envelope);
+        self.tx.unbounded_send(envelope).expect(
+            "Message sending unexpectedly failed. Perhaps the receiver \
+             address was also unexpectedly dropped?",
+        );
 
         // return the response channel
         ResponseFuture::with_receiver(rrx)
@@ -104,6 +107,7 @@ impl ActorSelfDestructor {
 
 impl Drop for ActorSelfDestructor {
     fn drop(&mut self) {
+        // don't care if it fails
         self.tx.take().unwrap().send(());
     }
 }
