@@ -1,5 +1,5 @@
 [package]
-name = "houjuu"
+name = "sekibanki"
 version = "0.1.0"
 authors = ["F5XS <f5xs.0000a@gmail.com>"]
 description = "An actor framework inspired by actix"
