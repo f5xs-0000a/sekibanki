@@ -1,25 +1,23 @@
 use either::Either;
 use futures::{
-    task::Context as FutContext,
+    sync::{
+        mpsc::{
+            unbounded,
+            UnboundedReceiver as Receiver,
+            UnboundedSender as Sender,
+        },
+        oneshot::Receiver as OneShotReceiver,
+    },
     Async,
     Future,
-    Never,
     Poll,
     Stream,
 };
-use futures_channel::{
-    mpsc::{
-        unbounded,
-        UnboundedReceiver as Receiver,
-        UnboundedSender as Sender,
-    },
-    oneshot::Receiver as OneShotReceiver,
-};
-use futures_executor::ThreadPool;
 use std::sync::{
     Arc,
     Weak,
 };
+use tokio_threadpool::Sender as TPSender;
 
 use actor::{
     Actor,
@@ -47,7 +45,7 @@ where
     // tx: Sender<Box<dyn Message<A, Response = MessageResponse>>>,
     //
     // a copy of the threadpool, in case another actor needs to be started
-    pool: ThreadPool,
+    pool: TPSender,
 }
 
 /// The half of the context that is mutable.
@@ -83,7 +81,7 @@ where
         Addr::new(self.tx.clone(), sd)
     }
 
-    pub fn threadpool(&self) -> &ThreadPool {
+    pub fn threadpool(&self) -> &TPSender {
         &self.pool
     }
 }
@@ -105,13 +103,10 @@ impl<A> Stream for ContextMutHalf<A>
 where
     A: Actor,
 {
-    type Error = Never;
+    type Error = ();
     type Item = Either<Envelope<A>, ()>;
 
-    fn poll_next(
-        &mut self,
-        cx: &mut FutContext,
-    ) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         use self::{
             Async::*,
             Either::*,
@@ -122,9 +117,9 @@ where
 
         // prioritize rx first
         // unwrap since it never fails
-        match self.rx.poll_next(cx).unwrap() {
+        match self.rx.poll().unwrap() {
             // don't do anything if it's still pending
-            Pending => {},
+            NotReady => {},
 
             // return the ready value
             Ready(Some(polled_msg)) => return Ok(Ready(Some(Left(polled_msg)))),
@@ -134,9 +129,9 @@ where
         }
 
         // then prioritize the self-destructor
-        match self.self_destruct_rx.poll(cx).unwrap() {
+        match self.self_destruct_rx.poll().unwrap() {
             // just return pending if it's still pending
-            Pending => return Ok(Pending),
+            NotReady => return Ok(NotReady),
 
             // return if self-destruct sequence is requested
             // this will happen if either sender has sent its message or the
@@ -153,7 +148,7 @@ where
     pub(crate) fn new(
         actor: A,
         _builder: ActorBuilder,
-        pool: ThreadPool,
+        pool: TPSender,
     ) -> (Context<A>, Addr<A>) {
         // create the self-destructor, the message towards the self-desturcto,
         // and the weak pointer to the self-destructor
@@ -222,13 +217,10 @@ impl<A> Stream for Context<A>
 where
     A: Actor,
 {
-    type Error = Never;
+    type Error = ();
     type Item = ();
 
-    fn poll_next(
-        &mut self,
-        cx: &mut FutContext,
-    ) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         use self::{
             Async::*,
             Either::*,
@@ -237,9 +229,9 @@ where
         // stream over the underlying stream
         // the result can be safely unwrapped because the type of the error is
         // `Never`
-        match self.mut_half().poll_next(cx).unwrap() {
+        match self.mut_half().poll().unwrap() {
             // pending if not yet ready
-            Pending => Ok(Pending),
+            NotReady => Ok(NotReady),
 
             // the sender has been dropped but without initializing the
             // self-destruct sequence; this normally does not happen but, in any

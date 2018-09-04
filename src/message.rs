@@ -1,4 +1,4 @@
-use futures_channel::oneshot::Sender as OneShotSender;
+use futures::sync::oneshot::Sender as OneShotSender;
 
 use actor::{
     Actor,

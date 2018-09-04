@@ -1,10 +1,11 @@
 use futures::{
-    task::Context as FutContext,
+    sync::oneshot::{
+        Canceled,
+        Receiver as OneShotReceiver,
+    },
     Future,
-    Never,
     Poll,
 };
-use futures_channel::oneshot::Receiver as OneShotReceiver;
 
 use actor::Handles;
 use message::Message;
@@ -42,13 +43,10 @@ where
     A: Handles<M>,
     M: Message,
 {
-    type Error = Never;
+    type Error = Canceled;
     type Item = A::Response;
 
-    fn poll(
-        &mut self,
-        cx: &mut FutContext,
-    ) -> Poll<Self::Item, Self::Error> {
-        self.rx.poll(cx).map_err(|_| unreachable!())
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.rx.poll()
     }
 }

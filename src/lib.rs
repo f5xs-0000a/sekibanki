@@ -1,10 +1,6 @@
-#![feature(pin)]
-
 extern crate either;
-extern crate futures_channel;
-extern crate futures_core as futures;
-extern crate futures_executor;
-extern crate futures_util;
+extern crate futures;
+extern crate tokio_threadpool;
 
 pub mod actor;
 pub mod address;
@@ -21,3 +17,4 @@ pub use address::Addr;
 pub use context::ContextImmutHalf;
 pub use message::Message;
 pub use response::ResponseFuture;
+pub use tokio_threadpool::Sender;

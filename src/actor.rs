@@ -1,9 +1,8 @@
-use futures::executor::Executor;
-use futures_executor::ThreadPool;
-use futures_util::{
-    FutureExt,
-    StreamExt,
+use futures::{
+    Future,
+    Stream,
 };
+use tokio_threadpool::Sender as TPSender;
 
 use address::Addr;
 use context::{
@@ -22,7 +21,7 @@ pub trait Actor: Sized + 'static + Send {
     fn start_actor(
         self,
         builder: ActorBuilder,
-        mut pool: ThreadPool,
+        pool: TPSender,
     ) -> Addr<Self> {
         use futures::future::ok;
 

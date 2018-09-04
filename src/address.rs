@@ -1,4 +1,4 @@
-use futures_channel::{
+use futures::sync::{
     mpsc::UnboundedSender as Sender,
     oneshot::{
         channel as oneshot,
@@ -68,7 +68,6 @@ where
         // create the response channel
         let (rtx, rrx) = oneshot();
 
-        //
         // create the closure
         // let closure = move |actor: &mut A, ctx: &ContextImmutHalf<A>| {
         // perform the operation and retrieve the response
