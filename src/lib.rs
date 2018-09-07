@@ -6,6 +6,7 @@ pub mod actor;
 pub mod address;
 pub mod context;
 pub mod message;
+pub mod notify;
 pub mod response;
 
 pub use actor::{
@@ -16,5 +17,6 @@ pub use actor::{
 pub use address::Addr;
 pub use context::ContextImmutHalf;
 pub use message::Message;
+pub use notify::NotifyHandle;
 pub use response::ResponseFuture;
 pub use tokio_threadpool::Sender;

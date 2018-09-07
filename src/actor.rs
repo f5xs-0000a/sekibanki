@@ -49,7 +49,7 @@ pub trait Actor: Sized + 'static + Send {
     ) {
     }
 
-    fn on_stop(
+    fn on_message_exhaust(
         &mut self,
         _ctx: &ContextImmutHalf<Self>,
     ) {

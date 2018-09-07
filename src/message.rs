@@ -51,6 +51,13 @@ where
             msg: Some(msg),
         })
     }
+
+    fn boxed_new_without_response(msg: M) -> Box<EnvelopeInner<A, M>> {
+        Box::new(EnvelopeInner {
+            tx:  None,
+            msg: Some(msg),
+        })
+    }
 }
 
 impl<A, M> EnvelopeInnerTrait for EnvelopeInner<A, M>
@@ -66,8 +73,10 @@ where
         ctx: &ContextImmutHalf<Self::A>,
     ) {
         if let Some(msg) = self.msg.take() {
+            // let the actor handle the message
             let response = actor.handle(msg, ctx);
 
+            // if we have a sender, we send the message
             if let Some(tx) = self.tx.take() {
                 // don't care if it fails
                 tx.send(response);
@@ -88,6 +97,13 @@ where
         M: Message + 'static,
         A: Handles<M> + 'static, {
         Envelope(EnvelopeInner::boxed_new(msg, tx))
+    }
+
+    pub fn new_without_response<M>(msg: M) -> Envelope<A>
+    where
+        M: Message + 'static,
+        A: Handles<M> + 'static, {
+        Envelope(EnvelopeInner::boxed_new_without_response(msg))
     }
 
     pub fn handle(

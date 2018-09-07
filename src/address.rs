@@ -6,7 +6,10 @@ use futures::sync::{
         Sender as OneShotSender,
     },
 };
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use actor::{
     Actor,
@@ -15,6 +18,10 @@ use actor::{
 use message::{
     Envelope,
     Message,
+};
+use notify::{
+    new_notify,
+    NotifyHandle,
 };
 use response::ResponseFuture;
 
@@ -75,6 +82,7 @@ where
         // create the response channel
         let (rtx, rrx) = oneshot();
 
+        // wrap the message and the sender into an envelope
         let envelope = Envelope::new(msg, rtx);
         self.tx.unbounded_send(envelope).expect(
             "Message sending unexpectedly failed. Perhaps the receiver \
@@ -83,6 +91,41 @@ where
 
         // return the response channel
         ResponseFuture::with_receiver(rrx)
+    }
+
+    /// Send a message to the actor at a later time
+    pub fn send_later<M>(
+        &mut self,
+        msg: M,
+        sleep: Duration,
+    ) -> (NotifyHandle<A, M>, ResponseFuture<A, M>)
+    where
+        M: Message + 'static + Sync,
+        A: Handles<M>, {
+        // create the response channel
+        let (rtx, rrx) = oneshot();
+
+        // create the notify channel
+        let (nh, cnh) = new_notify();
+
+        // clone the actor send channel
+        let new_tx = self.tx.clone();
+
+        // spawn a thread that will sleep for a given duration then forget about
+        // it
+        ::std::thread::spawn(move || {
+            ::std::thread::sleep(sleep);
+
+            // if the handle is still not dropped...
+            if cnh.is_alive() {
+                // send the message but don't care if the send failed
+                new_tx.unbounded_send(Envelope::new(msg, rtx));
+            }
+        });
+
+        let response_future = ResponseFuture::with_receiver(rrx);
+
+        (nh, response_future)
     }
 
     pub fn weak(&self) -> WeakAddr<A> {

@@ -1,3 +1,4 @@
+use actor::Handles;
 use either::Either;
 use futures::{
     sync::{
@@ -13,9 +14,13 @@ use futures::{
     Poll,
     Stream,
 };
-use std::sync::{
-    Arc,
-    Weak,
+use message::Message;
+use std::{
+    sync::{
+        Arc,
+        Weak,
+    },
+    time::Duration,
 };
 use tokio_threadpool::Sender as TPSender;
 
@@ -28,6 +33,10 @@ use address::{
     Addr,
 };
 use message::Envelope;
+use notify::{
+    new_notify,
+    NotifyHandle,
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -83,6 +92,49 @@ where
 
     pub fn threadpool(&self) -> &TPSender {
         &self.pool
+    }
+
+    pub fn notify<M>(
+        &self,
+        msg: M,
+    ) where
+        A: Handles<M>,
+        M: Message + 'static, {
+        // NOTE: the implementation is the same as `Addr::send()`
+        self.tx
+            .unbounded_send(Envelope::new_without_response(msg))
+            .expect(
+                "Message sending unexpectedly failed. Perhaps the receiver \
+                 address was also unexpectedly dropped?",
+            );
+    }
+
+    pub fn notify_later<M>(
+        &self,
+        msg: M,
+        sleep: Duration,
+    ) -> NotifyHandle<A, M>
+    where
+        A: Handles<M>,
+        M: Message + Sync + 'static, {
+        // NOTE: the implementation is the same as `Addr::send_later()`
+
+        let new_tx = self.tx.clone();
+        let (nh, cnh) = new_notify();
+
+        // spawn a thread that will sleep for a given duration then forget about
+        // it
+        ::std::thread::spawn(move || {
+            ::std::thread::sleep(sleep);
+
+            // if the handle is still not dropped...
+            if cnh.is_alive() {
+                // send the message but don't care if the send failed
+                new_tx.unbounded_send(Envelope::new_without_response(msg));
+            }
+        });
+
+        nh
     }
 }
 
@@ -256,11 +308,12 @@ where
     }
 }
 
-impl<A> Drop for Context<A>
-where
-    A: Actor,
-{
-    fn drop(&mut self) {
-        self.mut_half.actor.on_stop(&self.immut_half);
-    }
-}
+// impl<A> Drop for Context<A>
+// where
+// A: Actor,
+// {
+// fn drop(&mut self) {
+// self.mut_half.actor.on_stop(&self.immut_half);
+// }
+// }
+//
