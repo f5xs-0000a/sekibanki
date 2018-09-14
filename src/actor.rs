@@ -28,17 +28,23 @@ pub trait Actor: Sized + 'static + Send {
         // create the context and the first address
         let (mut ctx, addr) = Context::new(self, builder, pool.clone());
 
-        {
-            // temporarily split the context
-            let (immut_half, mut_half) = ctx.halves_mut();
-
-            // call the `on_start()` method of the actor
-            mut_half.actor_mut().on_start(immut_half);
-        }
-
         // put the context into a waiting loop
-        pool.spawn(Box::new(ctx.fuse().for_each(|_| ok(())).map(|_| ())))
-            .expect("Unable to spawn new context...");
+        // pool.spawn(Box::new(ctx.fuse().for_each(|_| ok(())).map(|_| ())))
+        //    .expect("Unable to spawn new context...");
+        pool.spawn(::futures::lazy(|| {
+            {
+                // temporarily split the context
+                let (immut_half, mut_half) = ctx.halves_mut();
+
+                // call the `on_start()` method of the actor
+                mut_half.actor_mut().on_start(immut_half);
+            }
+
+            // exhaust the mailbox of the context
+            ctx.fuse();
+
+            ::futures::future::ok(())
+        }));
 
         addr
     }

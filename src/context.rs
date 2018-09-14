@@ -307,13 +307,3 @@ where
         }
     }
 }
-
-// impl<A> Drop for Context<A>
-// where
-// A: Actor,
-// {
-// fn drop(&mut self) {
-// self.mut_half.actor.on_stop(&self.immut_half);
-// }
-// }
-//
