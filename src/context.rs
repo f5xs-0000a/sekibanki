@@ -152,7 +152,9 @@ where
 }
 
 impl<A> Iterator for ContextMutHalf<A>
-where A: Actor {
+where
+    A: Actor,
+{
     type Item = Either<Envelope<A>, ()>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -185,17 +187,14 @@ where A: Actor {
         }
 
         // create a waiting stream of the two receivers
-        let left_stream = self.rx
-            .by_ref()
-            .map(|msg| Either::Left(msg));
+        let left_stream = self.rx.by_ref().map(|msg| Either::Left(msg));
 
         let right_stream = (&mut self.self_destruct_rx)
             .into_stream()
             .map(|_| Either::Right(()))
             .map_err(|_| ());
 
-        let mut select = left_stream.select(right_stream)
-            .take(1);
+        let mut select = left_stream.select(right_stream).take(1);
 
         match blocking(|| select.wait().next()) {
             Err(e) => panic!("{:?}", e),
@@ -207,14 +206,13 @@ where A: Actor {
                     // either the left stream's senders have been dropped or
                     // the right stream's sender failed to send. either way, the
                     // actor must be dropped.
-                    None
-                    | Some(Err(_)) => Either::Right(()),
+                    None | Some(Err(_)) => Either::Right(()),
 
-                    Some(Ok(msg)) => msg
+                    Some(Ok(msg)) => msg,
                 };
 
                 Some(ret)
-            }
+            },
         }
     }
 }

@@ -28,7 +28,6 @@ use response::ResponseFuture;
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Address pointing to an actor. Used to send messages to an actor.
-///
 #[derive(Clone)]
 pub struct Addr<A>
 where
