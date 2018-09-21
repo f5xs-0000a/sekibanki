@@ -28,6 +28,7 @@ use response::ResponseFuture;
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Address pointing to an actor. Used to send messages to an actor.
+///
 #[derive(Clone)]
 pub struct Addr<A>
 where
@@ -49,6 +50,23 @@ where
 /// If all addresses pointing to a specific actor were dropped, the `drop()`
 /// method of this struct gets called, sending the signal to the actor to kill
 /// itself.
+///
+/// This struct is necessary because it is not sufficient to rely on the number
+/// of senders left in the runtime. The senders may exist within the `Context`
+/// or on `WeakAddr`s. However, once the number of senders reaches zero, it is
+/// impossible for the `Actor` to handle any succeeding messages after the
+/// buffer has been emptied, if there are any. The `Addr` must contain a
+/// self-destruct mechanism so that the Actor context must be instructed to
+/// handle all remaining messages in the buffer before dropping itself. However,
+/// during the period of "cleaning up" of the buffer, any objects that carry a
+/// receiver can still send messages and they will be handled.
+///
+/// However, a stray sender whose receiver half is already dropped must be
+/// handled with accordingly. If the sender has attempted to send, it must
+/// receive an error that the send has failed. If the sender succeeded in
+/// sending a message in the midst of the Actor `Context` being dropped, the
+/// `ResponseFuture` must return a None (or whatever near applicable) when its
+/// `poll()` is called.
 #[derive(Debug)]
 pub(crate) struct ActorSelfDestructor {
     tx: Option<OneShotSender<()>>,

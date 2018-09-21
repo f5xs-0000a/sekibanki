@@ -151,6 +151,74 @@ where
     }
 }
 
+impl<A> Iterator for ContextMutHalf<A>
+where A: Actor {
+    type Item = Either<Envelope<A>, ()>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use tokio_threadpool::blocking;
+
+        // the error value of receivers is Never so they will never error, i.e.
+        // they can be safely unwrapped.
+
+        // check if rx has a message ready to be processed
+        // unwrap since it never fails
+        if let Async::Ready(msg) = self.rx.poll().unwrap() {
+            // since msg becoming `None` would mean that all senders are
+            // dropped, miraculously including the one in the Context, it would
+            // mean that the actor is ready to be dropped
+            let ret = match msg {
+                None => Either::Right(()),
+                Some(msg) => Either::Left(msg),
+            };
+
+            return Some(ret);
+        }
+
+        // check if the self-desturctor is ready to be processed
+        if let Async::Ready(_) = self.self_destruct_rx.poll().unwrap() {
+            // if the self-destructor is mysteriously dropped without sending
+            // its message, it is considered dropped.
+            // therefore, either way, if the receiver is ready, this struct is
+            // ready to be dropped
+            return Some(Either::Right(()));
+        }
+
+        // create a waiting stream of the two receivers
+        let left_stream = self.rx
+            .by_ref()
+            .map(|msg| Either::Left(msg));
+
+        let right_stream = (&mut self.self_destruct_rx)
+            .into_stream()
+            .map(|_| Either::Right(()))
+            .map_err(|_| ());
+
+        let mut select = left_stream.select(right_stream)
+            .take(1);
+
+        match blocking(|| select.wait().next()) {
+            Err(e) => panic!("{:?}", e),
+            Ok(Async::NotReady) => unimplemented!(),
+            Ok(Async::Ready(msg)) => {
+                // since the msg came from an iterator's `next()`, it's an
+                // option. we have to match it. and it may be an error too
+                let ret = match msg {
+                    // either the left stream's senders have been dropped or
+                    // the right stream's sender failed to send. either way, the
+                    // actor must be dropped.
+                    None
+                    | Some(Err(_)) => Either::Right(()),
+
+                    Some(Ok(msg)) => msg
+                };
+
+                Some(ret)
+            }
+        }
+    }
+}
+
 impl<A> Stream for ContextMutHalf<A>
 where
     A: Actor,
@@ -307,13 +375,3 @@ where
         }
     }
 }
-
-// impl<A> Drop for Context<A>
-// where
-// A: Actor,
-// {
-// fn drop(&mut self) {
-// self.mut_half.actor.on_stop(&self.immut_half);
-// }
-// }
-//
