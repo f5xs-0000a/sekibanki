@@ -23,15 +23,16 @@ pub trait Actor: Sized + 'static + Send {
         builder: ActorBuilder,
         pool: TPSender,
     ) -> Addr<Self> {
-        use futures::future::ok;
+        use futures::future::{
+            lazy,
+            ok,
+        };
 
         // create the context and the first address
         let (mut ctx, addr) = Context::new(self, builder, pool.clone());
 
         // put the context into a waiting loop
-        // pool.spawn(Box::new(ctx.fuse().for_each(|_| ok(())).map(|_| ())))
-        //    .expect("Unable to spawn new context...");
-        pool.spawn(::futures::lazy(|| {
+        pool.spawn(lazy(move || {
             {
                 // temporarily split the context
                 let (immut_half, mut_half) = ctx.halves_mut();
@@ -40,11 +41,9 @@ pub trait Actor: Sized + 'static + Send {
                 mut_half.actor_mut().on_start(immut_half);
             }
 
-            // exhaust the mailbox of the context
-            ctx.fuse();
-
-            ::futures::future::ok(())
-        }));
+            ctx.iter_through();
+            ok(())
+        })).expect("Unable to spawn new context...");
 
         addr
     }

@@ -151,45 +151,71 @@ where
     }
 }
 
-impl<A> Stream for ContextMutHalf<A>
+impl<A> Iterator for ContextMutHalf<A>
 where
     A: Actor,
 {
-    type Error = ();
-    type Item = Either<Envelope<A>, ()>;
+    type Item = Envelope<A>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        use self::{
-            Async::*,
-            Either::*,
-        };
+    fn next(&mut self) -> Option<Self::Item> {
+        use tokio_threadpool::blocking;
 
         // the error value of receivers is Never so they will never error, i.e.
         // they can be safely unwrapped.
 
-        // prioritize rx first
+        // check if rx has a message ready to be processed
         // unwrap since it never fails
         match self.rx.poll().unwrap() {
-            // don't do anything if it's still pending
-            NotReady => {},
+            // the values caught by this branch would either be a message (Some)
+            // or a None
+            // since msg becoming `None` would mean that all senders are
+            // dropped, miraculously including the one in the Context, it would
+            // mean that the actor is ready to be dropped
+            Async::Ready(msg) => return msg,
 
-            // return the ready value
-            Ready(Some(polled_msg)) => return Ok(Ready(Some(Left(polled_msg)))),
-
-            // if it finished, just wait for the destructor to happen
-            Ready(None) => {},
+            _ => {},
         }
 
-        // then prioritize the self-destructor
-        match self.self_destruct_rx.poll().unwrap() {
-            // just return pending if it's still pending
-            NotReady => return Ok(NotReady),
+        // check if the self-desturctor is ready to be processed
+        if let Async::Ready(_) = self.self_destruct_rx.poll().unwrap() {
+            // if the self-destructor is mysteriously dropped without sending
+            // its message, it is considered dropped.
+            // therefore, either way, if the receiver is ready, this struct is
+            // ready to be dropped
+            return None;
+        }
 
-            // return if self-destruct sequence is requested
-            // this will happen if either sender has sent its message or the
-            // sender dropped
-            Ready(_) => return Ok(Ready(Some(Right(())))),
-        };
+        // create a waiting stream of the two receivers
+        let left_stream = self.rx.by_ref().map(|msg| Either::Left(msg));
+
+        let right_stream = (&mut self.self_destruct_rx)
+            .into_stream()
+            .map(|_| Either::Right(()))
+            .map_err(|_| ());
+
+        let mut select = left_stream.select(right_stream).take(1);
+
+        match blocking(|| select.wait().next()) {
+            // the threadpool is dropped. what do we do now?
+            Err(e) => panic!("{:?}", e),
+
+            // the threadpool has reached its maximum blocking threads. what do
+            // we do now?
+            Ok(Async::NotReady) => unimplemented!(),
+
+            Ok(Async::Ready(msg)) => {
+                // since the msg came from an iterator's `next()`, it's an
+                // option. we have to match it. and it may be an error too
+                match msg {
+                    // either the left stream's senders have been dropped or
+                    // the right stream's sender failed to send. either way, the
+                    // actor must be dropped.
+                    None | Some(Err(_)) | Some(Ok(Either::Right(_))) => None,
+
+                    Some(Ok(Either::Left(msg))) => Some(msg),
+                }
+            },
+        }
     }
 }
 
@@ -263,47 +289,23 @@ where
     pub(crate) fn mut_half_immut(&self) -> &ContextMutHalf<A> {
         &self.mut_half
     }
-}
 
-impl<A> Stream for Context<A>
-where
-    A: Actor,
-{
-    type Error = ();
-    type Item = ();
+    pub(crate) fn iter_through(&mut self) {
+        use self::Either::*;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        use self::{
-            Async::*,
-            Either::*,
-        };
+        // iterate throug the underlying iterator
+        loop {
+            let msg = self.mut_half.next();
 
-        // stream over the underlying stream
-        // the result can be safely unwrapped because the type of the error is
-        // `Never`
-        match self.mut_half().poll().unwrap() {
-            // pending if not yet ready
-            NotReady => Ok(NotReady),
+            match msg {
+                // no more messages or the self-destruct sequence has initiated
+                None => break,
 
-            // the sender has been dropped but without initializing the
-            // self-destruct sequence; this normally does not happen but, in any
-            // case, the actor may now stop
-            Ready(None) => Ok(Ready(None)),
-
-            // the self-destruct sequence has been received
-            Ready(Some(Right(_))) => Ok(Ready(None)),
-
-            // a message has been received
-            Ready(Some(Left(msg))) => {
-                /*
-                // perfom the closure message
-                msg(&mut self.mut_half.actor, &self.immut_half);
-                */
-                msg.handle(&mut self.mut_half.actor, &self.immut_half);
-
-                // send the status that this is still alive
-                Ok(Ready(Some(())))
-            },
+                // a message was received; handle it
+                Some(msg) => {
+                    msg.handle(&mut self.mut_half.actor, &self.immut_half)
+                },
+            }
         }
     }
 }
