@@ -155,7 +155,7 @@ impl<A> Iterator for ContextMutHalf<A>
 where
     A: Actor,
 {
-    type Item = Either<Envelope<A>, ()>;
+    type Item = Envelope<A>;
 
     fn next(&mut self) -> Option<Self::Item> {
         use tokio_threadpool::blocking;
@@ -165,16 +165,15 @@ where
 
         // check if rx has a message ready to be processed
         // unwrap since it never fails
-        if let Async::Ready(msg) = self.rx.poll().unwrap() {
+        match self.rx.poll().unwrap() {
+            // the values caught by this branch would either be a message (Some)
+            // or a None
             // since msg becoming `None` would mean that all senders are
             // dropped, miraculously including the one in the Context, it would
             // mean that the actor is ready to be dropped
-            let ret = match msg {
-                None => Either::Right(()),
-                Some(msg) => Either::Left(msg),
-            };
+            Async::Ready(msg) => return msg,
 
-            return Some(ret);
+            _ => {}
         }
 
         // check if the self-desturctor is ready to be processed
@@ -183,7 +182,7 @@ where
             // its message, it is considered dropped.
             // therefore, either way, if the receiver is ready, this struct is
             // ready to be dropped
-            return Some(Either::Right(()));
+            return None
         }
 
         // create a waiting stream of the two receivers
@@ -197,21 +196,26 @@ where
         let mut select = left_stream.select(right_stream).take(1);
 
         match blocking(|| select.wait().next()) {
+            // the threadpool is dropped. what do we do now?
             Err(e) => panic!("{:?}", e),
+
+            // the threadpool has reached its maximum blocking threads. what do
+            // we do now?
             Ok(Async::NotReady) => unimplemented!(),
+
             Ok(Async::Ready(msg)) => {
                 // since the msg came from an iterator's `next()`, it's an
                 // option. we have to match it. and it may be an error too
-                let ret = match msg {
+                match msg {
                     // either the left stream's senders have been dropped or
                     // the right stream's sender failed to send. either way, the
                     // actor must be dropped.
-                    None | Some(Err(_)) => Either::Right(()),
+                    | None
+                    | Some(Err(_))
+                    | Some(Ok(Either::Right(_))) => None,
 
-                    Some(Ok(msg)) => msg,
-                };
-
-                Some(ret)
+                    Some(Ok(Either::Left(msg))) => Some(msg),
+                }
             },
         }
     }
@@ -297,10 +301,10 @@ where
 
             match msg {
                 // no more messages or the self-destruct sequence has initiated
-                None | Some(Right(_)) => break,
+                None => break,
 
                 // a message was received; handle it
-                Some(Left(msg)) => {
+                Some(msg) => {
                     msg.handle(&mut self.mut_half.actor, &self.immut_half)
                 },
             }
