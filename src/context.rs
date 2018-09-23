@@ -217,48 +217,6 @@ where
     }
 }
 
-impl<A> Stream for ContextMutHalf<A>
-where
-    A: Actor,
-{
-    type Error = ();
-    type Item = Either<Envelope<A>, ()>;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        use self::{
-            Async::*,
-            Either::*,
-        };
-
-        // the error value of receivers is Never so they will never error, i.e.
-        // they can be safely unwrapped.
-
-        // prioritize rx first
-        // unwrap since it never fails
-        match self.rx.poll().unwrap() {
-            // don't do anything if it's still pending
-            NotReady => {},
-
-            // return the ready value
-            Ready(Some(polled_msg)) => return Ok(Ready(Some(Left(polled_msg)))),
-
-            // if it finished, just wait for the destructor to happen
-            Ready(None) => {},
-        }
-
-        // then prioritize the self-destructor
-        match self.self_destruct_rx.poll().unwrap() {
-            // just return pending if it's still pending
-            NotReady => return Ok(NotReady),
-
-            // return if self-destruct sequence is requested
-            // this will happen if either sender has sent its message or the
-            // sender dropped
-            Ready(_) => return Ok(Ready(Some(Right(())))),
-        };
-    }
-}
-
 impl<A> Context<A>
 where
     A: Actor + 'static,
@@ -329,47 +287,23 @@ where
     pub(crate) fn mut_half_immut(&self) -> &ContextMutHalf<A> {
         &self.mut_half
     }
-}
 
-impl<A> Stream for Context<A>
-where
-    A: Actor,
-{
-    type Error = ();
-    type Item = ();
+    pub(crate) fn iter_through(&mut self) {
+        use self::Either::*;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        use self::{
-            Async::*,
-            Either::*,
-        };
+        // iterate throug the underlying iterator
+        loop {
+            let msg = self.mut_half.next();
 
-        // stream over the underlying stream
-        // the result can be safely unwrapped because the type of the error is
-        // `Never`
-        match self.mut_half().poll().unwrap() {
-            // pending if not yet ready
-            NotReady => Ok(NotReady),
+            match msg {
+                // no more messages or the self-destruct sequence has initiated
+                None | Some(Right(_)) => break,
 
-            // the sender has been dropped but without initializing the
-            // self-destruct sequence; this normally does not happen but, in any
-            // case, the actor may now stop
-            Ready(None) => Ok(Ready(None)),
-
-            // the self-destruct sequence has been received
-            Ready(Some(Right(_))) => Ok(Ready(None)),
-
-            // a message has been received
-            Ready(Some(Left(msg))) => {
-                /*
-                // perfom the closure message
-                msg(&mut self.mut_half.actor, &self.immut_half);
-                */
-                msg.handle(&mut self.mut_half.actor, &self.immut_half);
-
-                // send the status that this is still alive
-                Ok(Ready(Some(())))
-            },
+                // a message was received; handle it
+                Some(Left(msg)) => {
+                    msg.handle(&mut self.mut_half.actor, &self.immut_half)
+                },
+            }
         }
     }
 }
