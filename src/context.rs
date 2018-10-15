@@ -90,6 +90,17 @@ where
         Addr::new(self.tx.clone(), sd)
     }
 
+    pub fn has_addr(
+        &self,
+        addr: &Addr<A>,
+    ) -> bool {
+        let sd = Weak::upgrade(&self.sd).expect(
+            "Attempted to upgrade an already dead weak shared pointer.",
+        );
+
+        Arc::ptr_eq(&sd, &addr.sd)
+    }
+
     pub fn threadpool(&self) -> &TPSender {
         &self.pool
     }
@@ -149,15 +160,11 @@ where
     pub fn actor_mut(&mut self) -> &mut A {
         &mut self.actor
     }
-}
 
-impl<A> Iterator for ContextMutHalf<A>
-where
-    A: Actor,
-{
-    type Item = Envelope<A>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(
+        &mut self,
+        ctx: &ContextImmutHalf<A>,
+    ) -> Option<Envelope<A>> {
         use tokio_threadpool::blocking;
 
         // the error value of receivers is Never so they will never error, i.e.
@@ -184,6 +191,8 @@ where
             // ready to be dropped
             return None;
         }
+
+        self.actor.on_message_exhaust(ctx);
 
         // create a waiting stream of the two receivers
         let left_stream = self.rx.by_ref().map(|msg| Either::Left(msg));
@@ -295,7 +304,7 @@ where
 
         // iterate throug the underlying iterator
         loop {
-            let msg = self.mut_half.next();
+            let msg = self.mut_half.next(&self.immut_half);
 
             match msg {
                 // no more messages or the self-destruct sequence has initiated

@@ -1,10 +1,10 @@
 [package]
 name = "sekibanki"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["F5XS <f5xs.0000a@gmail.com>"]
 description = "An actor framework inspired by actix"
 
 [dependencies]
 either = "1.5.0"
-futures = "0.1.24"
-tokio-threadpool = "0.1.6"
+futures = "0.1.25"
+tokio-threadpool = "0.1.7"

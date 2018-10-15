@@ -32,7 +32,7 @@ use response::ResponseFuture;
 pub struct Addr<A>
 where
     A: Actor, {
-    sd: Arc<ActorSelfDestructor>,
+    pub(crate) sd: Arc<ActorSelfDestructor>,
     tx: Sender<Envelope<A>>,
 }
 

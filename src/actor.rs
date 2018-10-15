@@ -41,7 +41,13 @@ pub trait Actor: Sized + 'static + Send {
                 mut_half.actor_mut().on_start(immut_half);
             }
 
+            // this is the main infinite loop which calls boilerplate looping
+            // code
             ctx.iter_through();
+
+            // the method on_message_exhaust() is actually deep inside
+            // ctx.iter_through()
+
             ok(())
         })).expect("Unable to spawn new context...");
 
