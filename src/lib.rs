@@ -9,11 +9,7 @@ pub mod message;
 pub mod notify;
 pub mod response;
 
-pub use actor::{
-    Actor,
-    ActorBuilder,
-    Handles,
-};
+pub use actor::{Actor, ActorBuilder, Handles};
 pub use address::Addr;
 pub use context::ContextImmutHalf;
 pub use message::Message;

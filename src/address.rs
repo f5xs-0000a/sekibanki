@@ -1,28 +1,12 @@
 use futures::sync::{
     mpsc::UnboundedSender as Sender,
-    oneshot::{
-        channel as oneshot,
-        Receiver as OneShotReceiver,
-        Sender as OneShotSender,
-    },
+    oneshot::{channel as oneshot, Receiver as OneShotReceiver, Sender as OneShotSender},
 };
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use actor::{
-    Actor,
-    Handles,
-};
-use message::{
-    Envelope,
-    Message,
-};
-use notify::{
-    new_notify,
-    NotifyHandle,
-};
+use actor::{Actor, Handles};
+use message::{Envelope, Message};
+use notify::{new_notify, NotifyHandle};
 use response::ResponseFuture;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -31,7 +15,8 @@ use response::ResponseFuture;
 #[derive(Clone)]
 pub struct Addr<A>
 where
-    A: Actor, {
+    A: Actor,
+{
     pub(crate) sd: Arc<ActorSelfDestructor>,
     tx: Sender<Envelope<A>>,
 }
@@ -39,7 +24,8 @@ where
 #[derive(Clone)]
 pub struct WeakAddr<A>
 where
-    A: Actor, {
+    A: Actor,
+{
     tx: Sender<Envelope<A>>,
 }
 
@@ -78,24 +64,16 @@ where
     A: Actor + 'static,
 {
     /// Called during the creation of the actor
-    pub(crate) fn new(
-        tx: Sender<Envelope<A>>,
-        sd: Arc<ActorSelfDestructor>,
-    ) -> Addr<A> {
-        Addr {
-            tx,
-            sd,
-        }
+    pub(crate) fn new(tx: Sender<Envelope<A>>, sd: Arc<ActorSelfDestructor>) -> Addr<A> {
+        Addr { tx, sd }
     }
 
     /// Send a message to the actor
-    pub fn send<M>(
-        &mut self,
-        msg: M,
-    ) -> ResponseFuture<A, M>
+    pub fn send<M>(&mut self, msg: M) -> ResponseFuture<A, M>
     where
-        M: Message + 'static,
-        A: Handles<M>, {
+        M: Message<A> + 'static,
+        A: Handles<M>,
+    {
         // create the response channel
         let (rtx, rrx) = oneshot();
 
@@ -117,8 +95,9 @@ where
         sleep: Duration,
     ) -> (NotifyHandle<A, M>, ResponseFuture<A, M>)
     where
-        M: Message + 'static + Sync,
-        A: Handles<M>, {
+        M: Message<A> + 'static + Sync,
+        A: Handles<M>,
+    {
         // create the response channel
         let (rtx, rrx) = oneshot();
 
@@ -156,9 +135,7 @@ impl ActorSelfDestructor {
     pub fn new() -> (ActorSelfDestructor, OneShotReceiver<()>) {
         let (tx, rx) = oneshot();
 
-        let asd = ActorSelfDestructor {
-            tx: Some(tx)
-        };
+        let asd = ActorSelfDestructor { tx: Some(tx) };
 
         (asd, rx)
     }
@@ -175,13 +152,11 @@ impl<A> WeakAddr<A>
 where
     A: Actor,
 {
-    fn send<M>(
-        &mut self,
-        msg: M,
-    ) -> ResponseFuture<A, M>
+    fn send<M>(&mut self, msg: M) -> ResponseFuture<A, M>
     where
-        M: Message + 'static,
-        A: Handles<M>, {
+        M: Message<A> + 'static,
+        A: Handles<M>,
+    {
         // create the response channel
         let (rtx, rrx) = oneshot();
 

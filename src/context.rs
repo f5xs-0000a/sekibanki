@@ -2,48 +2,30 @@ use actor::Handles;
 use either::Either;
 use futures::{
     sync::{
-        mpsc::{
-            unbounded,
-            UnboundedReceiver as Receiver,
-            UnboundedSender as Sender,
-        },
+        mpsc::{unbounded, UnboundedReceiver as Receiver, UnboundedSender as Sender},
         oneshot::Receiver as OneShotReceiver,
     },
-    Async,
-    Future,
-    Poll,
-    Stream,
+    Async, Future, Stream,
 };
 use message::Message;
 use std::{
-    sync::{
-        Arc,
-        Weak,
-    },
+    sync::{Arc, Weak},
     time::Duration,
 };
 use tokio_threadpool::Sender as TPSender;
 
-use actor::{
-    Actor,
-    ActorBuilder,
-};
-use address::{
-    ActorSelfDestructor,
-    Addr,
-};
+use actor::{Actor, ActorBuilder};
+use address::{ActorSelfDestructor, Addr};
 use message::Envelope;
-use notify::{
-    new_notify,
-    NotifyHandle,
-};
+use notify::{new_notify, NotifyHandle};
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /// The half of the context that is immutable.
 pub struct ContextImmutHalf<A>
 where
-    A: Actor, {
+    A: Actor,
+{
     // this attribute is needed so he can make an exact clone of the address
     // without the need of the address
     // and this is guaranteed to be alive for most intents and purposes
@@ -60,7 +42,8 @@ where
 /// The half of the context that is mutable.
 pub(crate) struct ContextMutHalf<A>
 where
-    A: Actor, {
+    A: Actor,
+{
     self_destruct_rx: OneShotReceiver<()>,
     rx: Receiver<Envelope<A>>,
     actor: A,
@@ -69,9 +52,10 @@ where
 /// The context of the actor.
 pub(crate) struct Context<A>
 where
-    A: Actor, {
+    A: Actor,
+{
     immut_half: ContextImmutHalf<A>,
-    mut_half:   ContextMutHalf<A>,
+    mut_half: ContextMutHalf<A>,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,20 +67,15 @@ where
     pub fn addr(&self) -> Addr<A> {
         // as a consequence of the initialization of the `sd` attribute, the
         // immutable half cannot be accessed when the actor is stopping.
-        let sd = Weak::upgrade(&self.sd).expect(
-            "Attempted to upgrade an already dead weak shared pointer.",
-        );
+        let sd = Weak::upgrade(&self.sd)
+            .expect("Attempted to upgrade an already dead weak shared pointer.");
 
         Addr::new(self.tx.clone(), sd)
     }
 
-    pub fn has_addr(
-        &self,
-        addr: &Addr<A>,
-    ) -> bool {
-        let sd = Weak::upgrade(&self.sd).expect(
-            "Attempted to upgrade an already dead weak shared pointer.",
-        );
+    pub fn has_addr(&self, addr: &Addr<A>) -> bool {
+        let sd = Weak::upgrade(&self.sd)
+            .expect("Attempted to upgrade an already dead weak shared pointer.");
 
         Arc::ptr_eq(&sd, &addr.sd)
     }
@@ -105,12 +84,11 @@ where
         &self.pool
     }
 
-    pub fn notify<M>(
-        &self,
-        msg: M,
-    ) where
+    pub fn notify<M>(&self, msg: M)
+    where
         A: Handles<M>,
-        M: Message + 'static, {
+        M: Message<A> + 'static,
+    {
         // NOTE: the implementation is the same as `Addr::send()`
         self.tx
             .unbounded_send(Envelope::new_without_response(msg))
@@ -120,14 +98,11 @@ where
             );
     }
 
-    pub fn notify_later<M>(
-        &self,
-        msg: M,
-        sleep: Duration,
-    ) -> NotifyHandle<A, M>
+    pub fn notify_later<M>(&self, msg: M, sleep: Duration) -> NotifyHandle<A, M>
     where
         A: Handles<M>,
-        M: Message + Sync + 'static, {
+        M: Message<A> + Sync + 'static,
+    {
         // NOTE: the implementation is the same as `Addr::send_later()`
 
         let new_tx = self.tx.clone();
@@ -161,10 +136,7 @@ where
         &mut self.actor
     }
 
-    fn next(
-        &mut self,
-        ctx: &ContextImmutHalf<A>,
-    ) -> Option<Envelope<A>> {
+    fn next(&mut self, ctx: &ContextImmutHalf<A>) -> Option<Envelope<A>> {
         use tokio_threadpool::blocking;
 
         // the error value of receivers is Never so they will never error, i.e.
@@ -180,7 +152,7 @@ where
             // mean that the actor is ready to be dropped
             Async::Ready(msg) => return msg,
 
-            _ => {},
+            _ => {}
         }
 
         // check if the self-desturctor is ready to be processed
@@ -202,7 +174,7 @@ where
             .map(|_| Either::Right(()))
             .map_err(|_| ());
 
-        let mut select = left_stream.select(right_stream).take(1);
+        let select = left_stream.select(right_stream).take(1);
 
         match blocking(|| select.wait().next()) {
             // the threadpool is dropped. what do we do now?
@@ -223,7 +195,7 @@ where
 
                     Some(Ok(Either::Left(msg))) => Some(msg),
                 }
-            },
+            }
         }
     }
 }
@@ -232,11 +204,7 @@ impl<A> Context<A>
 where
     A: Actor + 'static,
 {
-    pub(crate) fn new(
-        actor: A,
-        _builder: ActorBuilder,
-        pool: TPSender,
-    ) -> (Context<A>, Addr<A>) {
+    pub(crate) fn new(actor: A, _builder: ActorBuilder, pool: TPSender) -> (Context<A>, Addr<A>) {
         // create the self-destructor, the message towards the self-desturcto,
         // and the weak pointer to the self-destructor
         let (self_destructor, sd_rx) = ActorSelfDestructor::new();
@@ -281,9 +249,7 @@ where
         &self.mut_half_immut().actor
     }
 
-    pub(crate) fn halves_mut(
-        &mut self,
-    ) -> (&ContextImmutHalf<A>, &mut ContextMutHalf<A>) {
+    pub(crate) fn halves_mut(&mut self) -> (&ContextImmutHalf<A>, &mut ContextMutHalf<A>) {
         (&self.immut_half, &mut self.mut_half)
     }
 
@@ -300,8 +266,6 @@ where
     }
 
     pub(crate) fn iter_through(&mut self) {
-        use self::Either::*;
-
         // iterate throug the underlying iterator
         loop {
             let msg = self.mut_half.next(&self.immut_half);
@@ -311,9 +275,7 @@ where
                 None => break,
 
                 // a message was received; handle it
-                Some(msg) => {
-                    msg.handle(&mut self.mut_half.actor, &self.immut_half)
-                },
+                Some(msg) => msg.handle(&mut self.mut_half.actor, &self.immut_half),
             }
         }
     }

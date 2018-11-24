@@ -1,9 +1,6 @@
 use std::{
     marker::PhantomData,
-    sync::{
-        Arc,
-        Weak,
-    },
+    sync::{Arc, Weak},
 };
 
 use actor::Handles;
@@ -15,8 +12,9 @@ use message::Message;
 pub struct NotifyHandle<A, M>
 where
     A: Handles<M>,
-    M: Message, {
-    inner:     Arc<()>,
+    M: Message<A>,
+{
+    inner: Arc<()>,
     phantom_a: PhantomData<A>,
     phantom_m: PhantomData<M>,
 }
@@ -25,8 +23,9 @@ where
 pub(crate) struct CrateNotifyHandle<A, M>
 where
     A: Handles<M>,
-    M: Message, {
-    inner:     Weak<()>,
+    M: Message<A>,
+{
+    inner: Weak<()>,
     phantom_a: PhantomData<A>,
     phantom_m: PhantomData<M>,
 }
@@ -36,7 +35,7 @@ where
 impl<A, M> CrateNotifyHandle<A, M>
 where
     A: Handles<M>,
-    M: Message,
+    M: Message<A>,
 {
     pub fn is_alive(&self) -> bool {
         Weak::upgrade(&self.inner).is_some()
@@ -46,11 +45,12 @@ where
 pub(crate) fn new_notify<A, M>() -> (NotifyHandle<A, M>, CrateNotifyHandle<A, M>)
 where
     A: Handles<M>,
-    M: Message, {
+    M: Message<A>,
+{
     let inner = Arc::new(());
 
     let cnh = CrateNotifyHandle {
-        inner:     Arc::downgrade(&inner),
+        inner: Arc::downgrade(&inner),
         phantom_a: PhantomData,
         phantom_m: PhantomData,
     };

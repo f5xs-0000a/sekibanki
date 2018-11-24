@@ -1,10 +1,6 @@
 use futures::{
-    sync::oneshot::{
-        Canceled,
-        Receiver as OneShotReceiver,
-    },
-    Future,
-    Poll,
+    sync::oneshot::{Canceled, Receiver as OneShotReceiver},
+    Future, Poll,
 };
 
 use actor::Handles;
@@ -16,8 +12,9 @@ use message::Message;
 pub struct ResponseFuture<A, M>
 where
     A: Handles<M>,
-    M: Message, {
-    rx:     OneShotReceiver<A::Response>,
+    M: Message<A>,
+{
+    rx: OneShotReceiver<A::Response>,
     polled: bool,
 }
 
@@ -26,22 +23,17 @@ where
 impl<A, M> ResponseFuture<A, M>
 where
     A: Handles<M>,
-    M: Message,
+    M: Message<A>,
 {
-    pub(crate) fn with_receiver(
-        rx: OneShotReceiver<A::Response>,
-    ) -> ResponseFuture<A, M> {
-        ResponseFuture {
-            rx,
-            polled: false,
-        }
+    pub(crate) fn with_receiver(rx: OneShotReceiver<A::Response>) -> ResponseFuture<A, M> {
+        ResponseFuture { rx, polled: false }
     }
 }
 
 impl<A, M> Future for ResponseFuture<A, M>
 where
     A: Handles<M>,
-    M: Message,
+    M: Message<A>,
 {
     type Error = Canceled;
     type Item = A::Response;
