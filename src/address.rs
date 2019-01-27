@@ -12,7 +12,6 @@ use response::ResponseFuture;
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Address pointing to an actor. Used to send messages to an actor.
-#[derive(Clone)]
 pub struct Addr<A>
 where
     A: Actor,
@@ -21,7 +20,6 @@ where
     tx: Sender<Envelope<A>>,
 }
 
-#[derive(Clone)]
 pub struct WeakAddr<A>
 where
     A: Actor,
@@ -131,6 +129,16 @@ where
     }
 }
 
+impl<A> Clone for Addr<A>
+where A: Actor,{
+    fn clone(&self) -> Addr<A> {
+        Addr {
+            sd: self.sd.clone(),
+            tx: self.tx.clone(),
+        }
+    }
+}
+
 impl ActorSelfDestructor {
     pub fn new() -> (ActorSelfDestructor, OneShotReceiver<()>) {
         let (tx, rx) = oneshot();
@@ -168,5 +176,14 @@ where
 
         // return the response channel
         ResponseFuture::with_receiver(rrx)
+    }
+}
+
+impl<A> Clone for WeakAddr<A>
+where A: Actor {
+    fn clone(&self) -> WeakAddr<A> {
+        WeakAddr {
+            tx: self.tx.clone(),
+        }
     }
 }
